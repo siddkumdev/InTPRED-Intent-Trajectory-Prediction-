@@ -1,0 +1,16 @@
+# Dataset, maps, and sweeps
+data/
+
+# Model checkpoints, GIFs, and PNG plots
+outputs/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# VS Code workspace settings
+.vscode/
+
+# Ignore any stray model weights saved outside the outputs folder
+*.pth
+*.pt
