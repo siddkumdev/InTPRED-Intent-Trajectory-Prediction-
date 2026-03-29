@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split # NEW: Imported random_split
 import torch.optim as optim
 import os
 
@@ -69,26 +69,37 @@ class TrajectoryPredictor(nn.Module):
 def main():
     # --- Configuration ---
     DATAROOT = r'data' 
-    BATCH_SIZE = 32 # Lowered batch size for more frequent weight updates!
+    BATCH_SIZE = 32 
     EPOCHS = 70
-    LEARNING_RATE = 6e-4
+    LEARNING_RATE = 1e-3
     DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
     print(f"--- Starting Training on {DEVICE} ---")
     
     os.makedirs('outputs', exist_ok=True)
 
-    # --- Data Loading ---
+    # --- Data Loading & Splitting ---
     print("Loading nuScenes database...")
     nusc = NuScenes(version='v1.0-mini', dataroot=DATAROOT, verbose=False)
     
-    # Initialize Transforms (Removed Noise/ToTensor as they are handled elsewhere)
     train_transform = ComposeTransforms([
         RandomRotate(max_angle_degrees=180)
     ])
     
-    dataset = NuScenesTrajectoryDataset(nusc, past_frames=4, future_frames=6, transform=train_transform)
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    # 1. Create the full dataset
+    full_dataset = NuScenesTrajectoryDataset(nusc, past_frames=4, future_frames=6, transform=train_transform)
+    
+    # 2. Lock the random seed so train.py and eval.py get the EXACT same split
+    torch.manual_seed(42)
+    
+    # 3. Split into 80% Train, 20% Validation
+    train_size = int(0.8 * len(full_dataset))
+    val_size = len(full_dataset) - train_size
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+    # 4. Create separate dataloaders
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True) # shuffle=False for val!
 
     # --- Initialization ---
     model = TrajectoryPredictor(hidden_dim=64, num_modes=3, use_transformer=True).to(DEVICE)
@@ -100,14 +111,15 @@ def main():
         model.train()
         total_loss = 0.0
         
-        # --- NEW: Catch map_images from the dataloader ---
-        for batch_idx, (past_coords, gt_coords, map_images) in enumerate(dataloader):
+        # --- Train on TRAIN_DATALOADER ---
+        for batch_idx, (past_coords, gt_coords, map_images) in enumerate(train_dataloader):
             
-            # Move all 3 items to GPU
             past_coords = past_coords.to(DEVICE).float()
             gt_coords = gt_coords.to(DEVICE).float()
             map_images = map_images.to(DEVICE)
             
+            # Note: Checking model.training is redundant here since we set model.train() above,
+            # but leaving it as it works fine.
             if model.training: 
                  noise = torch.randn_like(past_coords) * 0.02
                  past_coords_noisy = past_coords + noise
@@ -116,39 +128,46 @@ def main():
 
             optimizer.zero_grad()
             
-            # --- NEW: Pass map_images into the model ---
             pred_traj, pred_conf = model(past_coords_noisy, map_images)
-
             loss = criterion(pred_traj, pred_conf, gt_coords)
-            
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             loss.backward()
             optimizer.step()
             
             total_loss += loss.item()
 
-        avg_loss = total_loss / len(dataloader)
+            
+
+        avg_loss = total_loss / len(train_dataloader)
         print(f"Epoch [{epoch+1}/{EPOCHS}] | Train Loss: {avg_loss:.4f}")
         
         # --- Validation & Visualization ---
         model.eval()
+        val_ade_total = 0.0
+        val_fde_total = 0.0
+        
         with torch.no_grad():
-            # --- NEW: Catch the map for validation ---
-            val_past, val_gt, val_map = next(iter(dataloader))
-            val_past = val_past.to(DEVICE).float()
-            val_gt = val_gt.to(DEVICE).float()
-            val_map = val_map.to(DEVICE)
+            # --- Evaluate on the ENTIRE VAL_DATALOADER ---
+            for val_past, val_gt, val_map in val_dataloader:
+                val_past = val_past.to(DEVICE).float()
+                val_gt = val_gt.to(DEVICE).float()
+                val_map = val_map.to(DEVICE)
+                
+                val_pred, val_conf = model(val_past, val_map)
+                
+                distances = compute_distances(val_pred, val_gt)
+                # .item() extracts the float from the tensor so we can sum it
+                val_ade_total += compute_min_ade(distances).item()
+                val_fde_total += compute_min_fde(distances).item()
             
-            # --- NEW: Pass map to the model ---
-            val_pred, val_conf = model(val_past, val_map)
+            # Calculate averages across all validation batches
+            avg_val_ade = val_ade_total / len(val_dataloader)
+            avg_val_fde = val_fde_total / len(val_dataloader)
             
-            distances = compute_distances(val_pred, val_gt)
-            min_ade = compute_min_ade(distances)
-            min_fde = compute_min_fde(distances)
+            print(f"   -> Val minADE: {avg_val_ade:.3f}m | Val minFDE: {avg_val_fde:.3f}m")
             
-            print(f"   -> Val minADE: {min_ade:.3f}m | Val minFDE: {min_fde:.3f}m")
-            
+            # Visualization: This just grabs the final batch from the loop above
             plot_path = f"outputs/epoch_{epoch+1}_vis.png"
-            # Visualizer doesn't need the map tensor, it just draws the coordinates
             plot_multimodal_predictions(val_past, val_gt, val_pred, val_conf, sample_idx=0, save_path=plot_path)
 
     print("Training Complete! Check the 'outputs/' folder for trajectory progression images.")

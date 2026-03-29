@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split # NEW: Imported random_split
 from nuscenes.nuscenes import NuScenes
 
 # Import your custom modules
@@ -17,8 +17,19 @@ def evaluate_model():
     print("Loading Dataset...")
     nusc = NuScenes(version='v1.0-mini', dataroot=DATAROOT, verbose=False)
     
-    eval_dataset = NuScenesTrajectoryDataset(nusc, past_frames=4, future_frames=6, transform=None)
-    eval_loader = DataLoader(eval_dataset, batch_size=1, shuffle=True)
+    # 1. Load the ENTIRE dataset (No transforms needed for eval)
+    full_dataset = NuScenesTrajectoryDataset(nusc, past_frames=4, future_frames=6, transform=None)
+    
+    # 2. SYNC THE SPLIT: Lock the random seed to match train.py exactly!
+    torch.manual_seed(42)
+    
+    # 3. Calculate identical sizes and split
+    train_size = int(0.8 * len(full_dataset))
+    val_size = len(full_dataset) - train_size
+    _, eval_dataset = random_split(full_dataset, [train_size, val_size]) # We ignore the train part here
+    
+    # 4. Create loader ONLY from the eval split (shuffle=False for consistent debugging)
+    eval_loader = DataLoader(eval_dataset, batch_size=1, shuffle=False)
 
     print(f"Loading Model from {MODEL_PATH}...")
     model = TrajectoryPredictor(hidden_dim=64, num_modes=3, use_transformer=True)
@@ -26,7 +37,7 @@ def evaluate_model():
     model.to(DEVICE)
     model.eval() 
 
-    # --- NEW: Enhanced Debugging Metrics ---
+    # --- Enhanced Debugging Metrics ---
     total_min_ade = 0.0
     total_min_fde = 0.0
     total_top1_ade = 0.0 # Error of the model's MOST confident prediction
@@ -72,7 +83,7 @@ def evaluate_model():
                 
             num_samples += 1
             
-            # --- NEW: Detailed Console Logging for the first 5 samples ---
+            # --- Detailed Console Logging for the first 20 samples ---
             if i < 20:
                 print(f"\n[Sample {i+1} Debug Breakdown]")
                 for m in range(model.decoder.num_modes):

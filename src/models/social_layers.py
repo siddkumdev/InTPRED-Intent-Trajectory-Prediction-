@@ -78,6 +78,6 @@ class SocialPooling(nn.Module):
         pooled_context, _ = torch.max(interaction_features, dim=1)
         
         # Replace the -inf back to 0 (in case there were no valid neighbors)
-        pooled_context[pooled_context == float('-inf')] = 0.0
-        
+# Replace the -inf back to 0 (in case there were no valid neighbors)
+        pooled_context = pooled_context.masked_fill(pooled_context == float('-inf'), 0.0)        
         return pooled_context
