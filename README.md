@@ -1,5 +1,3 @@
-Here is the updated README, reorganized and expanded to strictly match the required sections outlined in your image. 
-
 # Multi-Modal Trajectory Prediction
 
 ## Project overview
@@ -43,35 +41,63 @@ Before you can run the code, you need a few tools installed on your computer.
 
 ## How to run the code
 
-**1. Training the Model**
-To "teach" the AI, it needs to look at thousands of examples of past movements to learn patterns.
-* Open your terminal and navigate to the project folder.
-* Run the training script:
-  ```bash
-  python train.py
-  ```
-* You will see the training progress (e.g., "Epoch 1/70"). As epochs increase, the "Train Loss" should decrease. This process creates an `outputs` folder containing a `final_model.pth` file (your trained AI).
+If you are new to running code from a terminal, don't worry! Just follow these exact steps:
 
-**2. Evaluating the Model**
-Once training is complete, you can test how smart the AI has become on new data.
-* Run the evaluation script:
-  ```bash
-  python eval.py
-  ```
-* The script will load your trained model, test it, print benchmark scores, and generate visual results in the `outputs` folder.
+### Phase 1: Opening your Terminal and Finding the Folder
+Before you can run the code, you need to tell your computer's terminal *where* the code is saved.
+
+1.  **Open your Terminal:**
+    * **Windows:** Press the Start button, type `cmd`, and press Enter to open the Command Prompt.
+    * **Mac:** Press Command + Space, type `Terminal`, and press Enter.
+2.  **Navigate to the project folder:** Use the `cd` (change directory) command to go to the folder where you saved this project. For example, if you saved it on your Desktop in a folder called "TrajectoryProject", you would type:
+    ```bash
+    cd Desktop/TrajectoryProject
+    ```
+    *(Press Enter after typing the command. Your terminal should now show that you are inside that folder).*
+
+### Phase 2: Training the AI Model
+Now we need to "teach" the AI. It will look at thousands of examples of past movements to learn patterns.
+
+1.  In your terminal, type the following command and press Enter:
+    ```bash
+    python train.py
+    ```
+2.  **What happens next?** You will see text start scrolling on your screen (e.g., "Epoch 1/70", "Epoch 2/70"). An "Epoch" is one full practice round for the AI. This process might take a while depending on your computer.
+3.  As the epochs increase, look at the "Train Loss" number. It should slowly get smaller—this means the AI is learning and making fewer mistakes!
+4.  Once it reaches the final epoch, it will automatically create a new folder called `outputs` and save its "brain" inside a file named `final_model.pth`.
+
+### Phase 3: Evaluating the Model
+Once training is 100% complete, it's time to test the AI with data it has never seen before to see how smart it really is.
+
+1.  In the exact same terminal window, type this command and press Enter:
+    ```bash
+    python eval.py
+    ```
+2.  The script will load the "brain" (`final_model.pth`) it just created and start making predictions. 
+3.  It will print out its final scores (benchmarks) in the terminal, and it will save visual graphs and animations into the `outputs` folder so you can see its guesses with your own eyes!
 
 ## Example outputs / results
 
 When you run the evaluation script, you will receive both quantitative scores and visual outputs:
 
-**1. Quantitative Scores (Printed in terminal):**
+### 1. Quantitative Scores (Printed in terminal)
 * **ADE (Average Displacement Error):** On average, how far off was the AI's predicted path from the real path? Lower is better (measured in meters).
 * **FDE (Final Displacement Error):** How far off was the AI's guess at the *very last* moment of the prediction? Lower is better (measured in meters).
 * *Note:* The code shows the error for its "Best Guess" (Top-1) and the error for the path that ended up being the closest to reality.
 
-**2. Visual Outputs (Saved in `outputs/` folder):**
-* **PNG images** (e.g., `eval_sample_1.png`): Graphs showing the past path (blue), the actual future path (green), and the AI's guesses (orange, purple, red).
-* **GIF animations** (e.g., `radar_sample_1.gif`): Animated "radar" views showing the prediction unfolding over time.
+### 2. Visual Outputs
+The code generates images showing the **Past Path (Blue)**, the **Actual Future Path (Green)**, and the **AI's Multiple Guesses (Red, Orange, Purple)**. Here are some examples of what the AI generates:
+
+**Sample 3 Output:**
+![Evaluation Sample 3](https://raw.githubusercontent.com/siddkumdev/InTPRED-Intent-Trajectory-Prediction-/main/outputs/eval_sample_3.png)
+
+**Sample 7 Output:**
+![Evaluation Sample 7](https://raw.githubusercontent.com/siddkumdev/InTPRED-Intent-Trajectory-Prediction-/main/outputs/eval_sample_7.png)
+
+**Sample 9 Output:**
+![Evaluation Sample 9](https://raw.githubusercontent.com/siddkumdev/InTPRED-Intent-Trajectory-Prediction-/main/outputs/eval_sample_9.png)
+
+*(You can also find GIF animations like `radar_sample.gif` in your `outputs` folder showing these predictions unfolding dynamically over time!)*
 
 ---
 *Note: Ensure this repository is publicly accessible during the evaluation period as per the submission guidelines.*
