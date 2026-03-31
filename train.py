@@ -18,7 +18,7 @@ from src.utils.visualization import plot_multimodal_predictions
 # 1. The Master Model Wrapper
 # ==========================================
 class TrajectoryPredictor(nn.Module):
-    def __init__(self, hidden_dim=64, num_modes=3, future_frames=6, use_transformer=True):
+    def __init__(self, hidden_dim=64, num_modes=2, future_frames=3, use_transformer=True):
         super(TrajectoryPredictor, self).__init__()
         
         # 1. The Momentum Stream
@@ -87,24 +87,33 @@ def main():
     ])
     
     # 1. Create the full dataset
-    full_dataset = NuScenesTrajectoryDataset(nusc, past_frames=4, future_frames=6, transform=train_transform)
-    
-    # 2. Lock the random seed so train.py and eval.py get the EXACT same split
+    import copy
+
+    # 1. Create the dataset WITHOUT transforms first for validation
+    val_full_dataset = NuScenesTrajectoryDataset(nusc, past_frames=2, future_frames=3, transform=None)
+
+    # 2. Create the dataset WITH transforms for training
+    train_full_dataset = NuScenesTrajectoryDataset(nusc, past_frames=2, future_frames=3, transform=train_transform)
+
+    # 3. Lock seed and generate indices
     torch.manual_seed(42)
-    
-    # 3. Split into 80% Train, 20% Validation
-    train_size = int(0.8 * len(full_dataset))
-    val_size = len(full_dataset) - train_size
-    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+    dataset_size = len(val_full_dataset)
+    indices = torch.randperm(dataset_size).tolist()
+    train_size = int(0.8 * dataset_size)
 
-    # 4. Create separate dataloaders
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size:]
+
+    # 4. Use PyTorch's Subset
+    from torch.utils.data import Subset
+    train_dataset = Subset(train_full_dataset, train_indices)
+    val_dataset = Subset(val_full_dataset, val_indices)
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True) # shuffle=False for val!
-
+    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
     # --- Initialization ---
     model = TrajectoryPredictor(hidden_dim=64, num_modes=3, use_transformer=True).to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    criterion = WTALoss(alpha=1.0) 
+    criterion = WTALoss(alpha=0.05, temperature=0.5) 
 
     # --- The Epoch Loop ---
     for epoch in range(EPOCHS):

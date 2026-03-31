@@ -1,9 +1,6 @@
 # Dataset, maps, and sweeps
 data/
 
-# Model checkpoints, GIFs, and PNG plots
-outputs/
-
 # Python cache files
 __pycache__/
 *.pyc

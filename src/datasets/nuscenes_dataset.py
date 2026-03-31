@@ -6,7 +6,7 @@ from PIL import Image
 import torchvision.transforms.functional as TF
 
 class NuScenesTrajectoryDataset(Dataset):
-    def __init__(self, nusc, category_filters=None, past_frames=4, future_frames=6, transform=None):
+    def __init__(self, nusc, category_filters=None, past_frames=2, future_frames=3, transform=None):
         if category_filters is None:
             category_filters = ['human.pedestrian', 'vehicle.bicycle']
             

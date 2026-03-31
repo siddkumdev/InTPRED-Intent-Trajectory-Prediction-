@@ -18,7 +18,7 @@ def evaluate_model():
     nusc = NuScenes(version='v1.0-mini', dataroot=DATAROOT, verbose=False)
     
     # 1. Load the ENTIRE dataset (No transforms needed for eval)
-    full_dataset = NuScenesTrajectoryDataset(nusc, past_frames=4, future_frames=6, transform=None)
+    full_dataset = NuScenesTrajectoryDataset(nusc, past_frames=2, future_frames=3, transform=None)
     
     # 2. SYNC THE SPLIT: Lock the random seed to match train.py exactly!
     torch.manual_seed(42)
@@ -117,4 +117,4 @@ def evaluate_model():
     print("========================================\n")
 
 if __name__ == '__main__':
-    evaluate_model()
+    evaluate_model() 
